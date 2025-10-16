@@ -1,5 +1,5 @@
 #!/bin/sh
-# TUIC v5 一键安装脚本 (仅适用于 Alpine Linux)
+# TUIC v5 一键安装脚本 (仅适用于 Alpine Linux, 使用 musl 构建)
 
 set -e
 
