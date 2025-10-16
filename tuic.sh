@@ -1,10 +1,11 @@
 #!/bin/sh
 # TUIC v5 一键安装脚本 (Alpine Linux, 自动检测二进制 + URL 编码订阅链接)
+# 修改版：改进了二进制文件验证逻辑，增加了更多下载源
 
 set -e
 
 echo "---------------------------------------"
-echo " TUIC v5 Alpine Linux 安装脚本"
+echo " TUIC v5 Alpine Linux 安装脚本 (修改版)"
 echo "---------------------------------------"
 
 # ===== 安装依赖 =====
@@ -12,6 +13,7 @@ echo "正在安装必要的软件包..."
 apk add --no-cache wget curl openssl openrc lsof coreutils jq file >/dev/null
 
 TUIC_BIN="/usr/local/bin/tuic"
+TEMP_BIN="/tmp/tuic_temp"
 
 # ===== 检测是否已有 TUIC =====
 if [ -x "$TUIC_BIN" ]; then
@@ -20,38 +22,66 @@ else
   echo "未检测到 TUIC，开始下载..."
 
   # 获取最新 tag
+  echo "正在获取最新版本信息..."
   TAG=$(curl -s https://api.github.com/repos/tuic-protocol/tuic/releases/latest | jq -r .tag_name)
-  VERSION=${TAG#tuic-server-}   # 去掉前缀，只保留版本号
+  if [ -z "$TAG" ] || [ "$TAG" = "null" ]; then
+    echo "无法获取最新版本信息，使用默认版本 1.0.0"
+    TAG="tuic-server-1.0.0"
+    VERSION="1.0.0"
+  else
+    VERSION=${TAG#tuic-server-}   # 去掉前缀，只保留版本号
+  fi
   echo "检测到最新版本: $VERSION"
 
   # 拼接文件名和下载地址 (x86_64 架构)
   FILENAME="tuic-server-${VERSION}-x86_64-unknown-linux-musl"
+  
+  # 增加更多下载源
   URLS="
-  https://github.com/tuic-protocol/tuic/releases/download/$TAG/$FILENAME
   https://ghproxy.com/https://github.com/tuic-protocol/tuic/releases/download/$TAG/$FILENAME
+  https://github.com/tuic-protocol/tuic/releases/download/$TAG/$FILENAME
+  https://mirror.ghproxy.com/https://github.com/tuic-protocol/tuic/releases/download/$TAG/$FILENAME
   "
 
   SUCCESS=0
   for url in $URLS; do
     echo "尝试下载: $url"
-    if wget --timeout=30 --tries=2 --show-progress -O $TUIC_BIN "$url"; then
-      SUCCESS=1
-      break
+    if wget --timeout=30 --tries=3 --show-progress -O $TEMP_BIN "$url"; then
+      # 检查文件大小，如果太小可能是错误页面
+      FILE_SIZE=$(stat -c %s $TEMP_BIN)
+      if [ $FILE_SIZE -lt 100000 ]; then
+        echo "警告: 下载的文件过小 ($FILE_SIZE 字节)，可能不是有效的二进制文件，尝试下一个源"
+        continue
+      fi
+      
+      # 检查文件类型
+      FILE_TYPE=$(file $TEMP_BIN)
+      echo "文件类型: $FILE_TYPE"
+      
+      # 更宽松的文件类型检查
+      if echo "$FILE_TYPE" | grep -q "ELF"; then
+        echo "✓ 文件类型检查通过"
+        mv $TEMP_BIN $TUIC_BIN
+        chmod +x $TUIC_BIN
+        SUCCESS=1
+        break
+      else
+        echo "警告: 下载的文件不是 ELF 格式，尝试下一个源"
+      fi
     fi
   done
 
   if [ $SUCCESS -eq 0 ]; then
-    echo "❌ 所有下载源均失败，请检查网络环境。"
+    echo "❌ 所有下载源均失败，请检查网络环境或手动下载。"
+    echo "手动下载指南:"
+    echo "1. 访问 https://github.com/tuic-protocol/tuic/releases/latest"
+    echo "2. 下载 tuic-server-*-x86_64-unknown-linux-musl 文件"
+    echo "3. 将文件上传到服务器并重命名为 $TUIC_BIN"
+    echo "4. 执行: chmod +x $TUIC_BIN"
     exit 1
   fi
 
-  chmod +x $TUIC_BIN
-
-  # ===== 验证二进制文件是否正确 =====
-  if ! file $TUIC_BIN | grep -q "ELF 64-bit LSB executable"; then
-    echo "❌ 下载的文件不是有效的 x86_64 ELF 二进制，请检查下载链接或架构"
-    exit 1
-  fi
+  echo "✓ TUIC 二进制文件下载成功"
 fi
 
 # ===== 证书处理 =====
