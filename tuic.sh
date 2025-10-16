@@ -1,5 +1,5 @@
 #!/bin/sh
-# TUIC v5 一键安装脚本 (Alpine Linux, 增强版：自动切换下载源)
+# TUIC v5 一键安装脚本 (仅适用于 Alpine Linux)
 
 set -e
 
@@ -11,14 +11,13 @@ echo "---------------------------------------"
 echo "正在安装必要的软件包..."
 apk add --no-cache wget curl openssl openrc lsof coreutils >/dev/null
 
-# ===== 下载 TUIC =====
-echo "正在下载 TUIC 最新版..."
+# ===== 下载 TUIC (musl 版本) =====
+echo "正在下载 TUIC 最新版 (musl 构建)..."
 TUIC_BIN="/usr/local/bin/tuic"
-
 URLS="
-https://github.com/tuic-protocol/tuic/releases/latest/download/tuic-server-x86_64-unknown-linux-gnu
-https://ghproxy.com/https://github.com/tuic-protocol/tuic/releases/latest/download/tuic-server-x86_64-unknown-linux-gnu
-https://download.fastgit.org/tuic-protocol/tuic/releases/latest/download/tuic-server-x86_64-unknown-linux-gnu
+https://github.com/tuic-protocol/tuic/releases/latest/download/tuic-server-x86_64-unknown-linux-musl
+https://ghproxy.com/https://github.com/tuic-protocol/tuic/releases/latest/download/tuic-server-x86_64-unknown-linux-musl
+https://download.fastgit.org/tuic-protocol/tuic/releases/latest/download/tuic-server-x86_64-unknown-linux-musl
 "
 
 SUCCESS=0
