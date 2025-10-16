@@ -1,5 +1,5 @@
 #!/bin/sh
-# TUIC v5 一键安装脚本 (Alpine Linux, 修复版)
+# TUIC v5 一键安装脚本 (Alpine Linux, 增强版：自动切换下载源)
 
 set -e
 
@@ -14,12 +14,27 @@ apk add --no-cache wget curl openssl openrc lsof coreutils >/dev/null
 # ===== 下载 TUIC =====
 echo "正在下载 TUIC 最新版..."
 TUIC_BIN="/usr/local/bin/tuic"
-DOWNLOAD_URL="https://github.com/tuic-protocol/tuic/releases/latest/download/tuic-server-x86_64-unknown-linux-gnu"
 
-wget --show-progress -O $TUIC_BIN $DOWNLOAD_URL || {
-  echo "❌ 下载 TUIC 失败，请检查网络或尝试使用代理镜像 (ghproxy)"
+URLS="
+https://github.com/tuic-protocol/tuic/releases/latest/download/tuic-server-x86_64-unknown-linux-gnu
+https://ghproxy.com/https://github.com/tuic-protocol/tuic/releases/latest/download/tuic-server-x86_64-unknown-linux-gnu
+https://download.fastgit.org/tuic-protocol/tuic/releases/latest/download/tuic-server-x86_64-unknown-linux-gnu
+"
+
+SUCCESS=0
+for url in $URLS; do
+  echo "尝试下载: $url"
+  if wget --timeout=30 --tries=2 --show-progress -O $TUIC_BIN "$url"; then
+    SUCCESS=1
+    break
+  fi
+done
+
+if [ $SUCCESS -eq 0 ]; then
+  echo "❌ 所有下载源均失败，请检查网络环境。"
   exit 1
-}
+fi
+
 chmod +x $TUIC_BIN
 
 # ===== 证书处理 =====
