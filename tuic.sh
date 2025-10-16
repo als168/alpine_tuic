@@ -12,7 +12,7 @@ echo "正在安装必要的软件包..."
 apk add --no-cache wget curl openssl openrc lsof coreutils jq >/dev/null
 
 # ===== 获取最新版本号 =====
-LATEST=$(curl -s https://api.github.com/repos/tuic-protocol/tuic/releases/latest | jq -r .tag_name)
+LATEST=$(curl -s https://api.github.com/repos/tuic-protocol/tuic/releases/latest | jq -r .name)
 if [ -z "$LATEST" ] || [ "$LATEST" = "null" ]; then
   echo "❌ 无法获取最新版本号，请检查网络或 GitHub API"
   exit 1
@@ -21,11 +21,11 @@ echo "检测到最新版本: $LATEST"
 
 # ===== 下载 TUIC (musl 版本 for Alpine) =====
 TUIC_BIN="/usr/local/bin/tuic"
-FILENAME="tuic-server-${LATEST#v}-x86_64-unknown-linux-musl"
+FILENAME="tuic-server-${LATEST}-x86_64-unknown-linux-musl"
 
 URLS="
-https://github.com/tuic-protocol/tuic/releases/download/$LATEST/$FILENAME
-https://ghproxy.com/https://github.com/tuic-protocol/tuic/releases/download/$LATEST/$FILENAME
+https://github.com/tuic-protocol/tuic/releases/download/tuic-server-$LATEST/$FILENAME
+https://ghproxy.com/https://github.com/tuic-protocol/tuic/releases/download/tuic-server-$LATEST/$FILENAME
 "
 
 SUCCESS=0
