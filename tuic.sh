@@ -1,5 +1,5 @@
 #!/bin/sh
-# TUIC v5 一键安装脚本 (Alpine Linux, 自动检测已有二进制)
+# TUIC v5 一键安装脚本 (Alpine Linux, 自动检测已有二进制 + URL 编码订阅链接)
 
 set -e
 
@@ -19,7 +19,7 @@ if [ -x "$TUIC_BIN" ]; then
 else
   echo "未检测到 TUIC，开始下载..."
 
-  # 获取最新版本号
+  # 获取最新 tag
   TAG=$(curl -s https://api.github.com/repos/tuic-protocol/tuic/releases/latest | jq -r .tag_name)
   VERSION=${TAG#tuic-server-}   # 去掉前缀，只保留版本号
   echo "检测到最新版本: $VERSION"
@@ -63,6 +63,7 @@ if [ -z "$CERT_PATH" ]; then
   KEY_PATH="$CERT_DIR/key.pem"
 else
   read -p "请输入私钥 (.key) 文件绝对路径: " KEY_PATH
+  read -p "请输入证书域名 (SNI): " FAKE_DOMAIN
 fi
 
 # ===== 生成 UUID 和密码 =====
@@ -110,7 +111,9 @@ rc-update add tuic default
 rc-service tuic restart
 
 # ===== 输出订阅链接 =====
+ENC_PASS=$(printf '%s' "$PASS" | jq -s -R -r @uri)   # URL 编码密码
 IP=$(wget -qO- ipv4.icanhazip.com || wget -qO- ipv6.icanhazip.com)
+
 echo "------------------------------------------------------------------------"
 echo " TUIC 安装和配置完成！"
 echo "------------------------------------------------------------------------"
@@ -123,5 +126,5 @@ echo "证书路径: $CERT_PATH"
 echo "私钥路径: $KEY_PATH"
 echo "------------------------------------------------------------------------"
 echo "订阅链接 (TUIC V5):"
-echo "tuic://$UUID:$PASS@$IP:$PORT?sni=$FAKE_DOMAIN&alpn=h3#TUIC节点"
+echo "tuic://$UUID:$ENC_PASS@$IP:$PORT?sni=$FAKE_DOMAIN&alpn=h3#TUIC节点"
 echo "------------------------------------------------------------------------"
