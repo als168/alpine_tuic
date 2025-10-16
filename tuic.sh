@@ -1,5 +1,5 @@
 #!/bin/sh
-# TUIC v5 一键安装脚本 (Alpine Linux)
+# TUIC v5 一键安装脚本 (Alpine Linux, 修复版)
 
 set -e
 
@@ -14,7 +14,12 @@ apk add --no-cache wget curl openssl openrc lsof coreutils >/dev/null
 # ===== 下载 TUIC =====
 echo "正在下载 TUIC 最新版..."
 TUIC_BIN="/usr/local/bin/tuic"
-wget -qO $TUIC_BIN https://github.com/EAimTY/tuic/releases/latest/download/tuic-server-linux-amd64
+DOWNLOAD_URL="https://github.com/tuic-protocol/tuic/releases/latest/download/tuic-server-x86_64-unknown-linux-gnu"
+
+wget --show-progress -O $TUIC_BIN $DOWNLOAD_URL || {
+  echo "❌ 下载 TUIC 失败，请检查网络或尝试使用代理镜像 (ghproxy)"
+  exit 1
+}
 chmod +x $TUIC_BIN
 
 # ===== 证书处理 =====
