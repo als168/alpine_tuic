@@ -12,7 +12,7 @@
 curl -fsSL https://raw.githubusercontent.com/als168/alpine_tuic/main/tuic.sh -o tuic.sh && chmod +x tuic.sh && sh tuic.sh
 ```
 
-#⚙️ 功能特性
+##⚙️ 功能特性
 自动安装依赖（wget、curl、openssl、openrc 等）
 
 支持自签证书 / ACME 证书
@@ -27,7 +27,7 @@ curl -fsSL https://raw.githubusercontent.com/als168/alpine_tuic/main/tuic.sh -o 
 
 支持 IPv4 / IPv6
 
-#📌 管理命令
+##📌 管理命令
 ```bash
 service tuic start     # 启动服务
 service tuic stop      # 停止服务
@@ -36,7 +36,7 @@ service tuic status    # 查看状态
 cat /etc/tuic/config.json   # 查看配置文件
 tail -f /var/log/tuic.log   # 查看实时日志
 ```
-#❌ 卸载命令
+##❌ 卸载命令
 
 ```bash
 service tuic stop
