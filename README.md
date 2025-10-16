@@ -29,7 +29,7 @@ curl -fsSL https://raw.githubusercontent.com/als168/alpine_tuic/main/tuic.sh -o 
 
 #📌 管理命令
 ```bash
- service tuic start     # 启动服务
+service tuic start     # 启动服务
 service tuic stop      # 停止服务
 service tuic restart   # 重启服务
 service tuic status    # 查看状态
