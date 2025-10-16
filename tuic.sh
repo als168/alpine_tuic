@@ -1,5 +1,5 @@
 #!/bin/sh
-# TUIC v5 一键安装脚本 (Alpine Linux, 自动获取最新版本号)
+# TUIC v5 一键安装脚本 (Alpine Linux, 自动获取最新版本号 + musl 构建)
 
 set -e
 
@@ -19,12 +19,13 @@ if [ -z "$LATEST" ] || [ "$LATEST" = "null" ]; then
 fi
 echo "检测到最新版本: $LATEST"
 
-# ===== 下载 TUIC (musl 版本) =====
+# ===== 下载 TUIC (musl 版本 for Alpine) =====
 TUIC_BIN="/usr/local/bin/tuic"
+FILENAME="tuic-server-${LATEST#v}-x86_64-unknown-linux-musl"
+
 URLS="
-https://github.com/tuic-protocol/tuic/releases/download/$LATEST/tuic-server-${LATEST#v}-x86_64-unknown-linux-musl
-https://ghproxy.com/https://github.com/tuic-protocol/tuic/releases/download/$LATEST/tuic-server-${LATEST#v}-x86_64-unknown-linux-musl
-https://download.fastgit.org/tuic-protocol/tuic/releases/download/$LATEST/tuic-server-${LATEST#v}-x86_64-unknown-linux-musl
+https://github.com/tuic-protocol/tuic/releases/download/$LATEST/$FILENAME
+https://ghproxy.com/https://github.com/tuic-protocol/tuic/releases/download/$LATEST/$FILENAME
 "
 
 SUCCESS=0
