@@ -1,5 +1,5 @@
 #!/bin/sh
-# TUIC v5 一键安装脚本 (Alpine Linux, 自动检测已有二进制 + URL 编码订阅链接)
+# TUIC v5 一键安装脚本 (Alpine Linux, 自动检测二进制 + URL 编码订阅链接)
 
 set -e
 
@@ -9,7 +9,7 @@ echo "---------------------------------------"
 
 # ===== 安装依赖 =====
 echo "正在安装必要的软件包..."
-apk add --no-cache wget curl openssl openrc lsof coreutils jq >/dev/null
+apk add --no-cache wget curl openssl openrc lsof coreutils jq file >/dev/null
 
 TUIC_BIN="/usr/local/bin/tuic"
 
@@ -24,7 +24,7 @@ else
   VERSION=${TAG#tuic-server-}   # 去掉前缀，只保留版本号
   echo "检测到最新版本: $VERSION"
 
-  # 拼接文件名和下载地址
+  # 拼接文件名和下载地址 (x86_64 架构)
   FILENAME="tuic-server-${VERSION}-x86_64-unknown-linux-musl"
   URLS="
   https://github.com/tuic-protocol/tuic/releases/download/$TAG/$FILENAME
@@ -46,6 +46,12 @@ else
   fi
 
   chmod +x $TUIC_BIN
+
+  # ===== 验证二进制文件是否正确 =====
+  if ! file $TUIC_BIN | grep -q "ELF 64-bit LSB executable"; then
+    echo "❌ 下载的文件不是有效的 x86_64 ELF 二进制，请检查下载链接或架构"
+    exit 1
+  fi
 fi
 
 # ===== 证书处理 =====
