@@ -1,16 +1,17 @@
 #!/bin/sh
 # TUIC v5 一键安装脚本 (Alpine Linux, 自动检测二进制 + URL 编码订阅链接)
-# 修改版：改进了二进制文件验证逻辑，增加了更多下载源
+# 优化版：去掉不稳定代理源，支持 aria2c，多线程下载，改进验证逻辑
 
 set -e
 
 echo "---------------------------------------"
-echo " TUIC v5 Alpine Linux 安装脚本 (修改版)"
+echo " TUIC v5 Alpine Linux 安装脚本 (优化版)"
 echo "---------------------------------------"
 
 # ===== 安装依赖 =====
 echo "正在安装必要的软件包..."
 apk add --no-cache wget curl openssl openrc lsof coreutils jq file >/dev/null
+apk add --no-cache aria2 >/dev/null || true
 
 TUIC_BIN="/usr/local/bin/tuic"
 TEMP_BIN="/tmp/tuic_temp"
@@ -29,16 +30,14 @@ else
     TAG="tuic-server-1.0.0"
     VERSION="1.0.0"
   else
-    VERSION=${TAG#tuic-server-}   # 去掉前缀，只保留版本号
+    VERSION=${TAG#tuic-server-}
   fi
   echo "检测到最新版本: $VERSION"
 
   # 拼接文件名和下载地址 (x86_64 架构)
   FILENAME="tuic-server-${VERSION}-x86_64-unknown-linux-musl"
   
-  # 增加更多下载源
   URLS="
-  https://ghproxy.com/https://github.com/tuic-protocol/tuic/releases/download/$TAG/$FILENAME
   https://github.com/tuic-protocol/tuic/releases/download/$TAG/$FILENAME
   https://mirror.ghproxy.com/https://github.com/tuic-protocol/tuic/releases/download/$TAG/$FILENAME
   "
@@ -46,42 +45,33 @@ else
   SUCCESS=0
   for url in $URLS; do
     echo "尝试下载: $url"
-    if wget --timeout=30 --tries=3 --show-progress -O $TEMP_BIN "$url"; then
-      # 检查文件大小，如果太小可能是错误页面
-      FILE_SIZE=$(stat -c %s $TEMP_BIN)
-      if [ $FILE_SIZE -lt 100000 ]; then
-        echo "警告: 下载的文件过小 ($FILE_SIZE 字节)，可能不是有效的二进制文件，尝试下一个源"
-        continue
-      fi
-      
-      # 检查文件类型
-      FILE_TYPE=$(file $TEMP_BIN)
-      echo "文件类型: $FILE_TYPE"
-      
-      # 更宽松的文件类型检查
-      if echo "$FILE_TYPE" | grep -q "ELF"; then
-        echo "✓ 文件类型检查通过"
-        mv $TEMP_BIN $TUIC_BIN
-        chmod +x $TUIC_BIN
-        SUCCESS=1
-        break
-      else
-        echo "警告: 下载的文件不是 ELF 格式，尝试下一个源"
-      fi
+    if command -v aria2c >/dev/null 2>&1; then
+      aria2c -x 8 -s 8 -o $TEMP_BIN "$url" || continue
+    else
+      wget --timeout=30 --tries=3 -O $TEMP_BIN "$url" || continue
+    fi
+
+    FILE_SIZE=$(stat -c %s $TEMP_BIN)
+    if [ $FILE_SIZE -lt 100000 ]; then
+      echo "警告: 文件过小 ($FILE_SIZE 字节)，可能不是有效二进制，尝试下一个源"
+      continue
+    fi
+
+    FILE_TYPE=$(file $TEMP_BIN)
+    echo "文件类型: $FILE_TYPE"
+    if echo "$FILE_TYPE" | grep -q "ELF"; then
+      echo "✓ 文件验证通过"
+      mv $TEMP_BIN $TUIC_BIN
+      chmod +x $TUIC_BIN
+      SUCCESS=1
+      break
     fi
   done
 
   if [ $SUCCESS -eq 0 ]; then
-    echo "❌ 所有下载源均失败，请检查网络环境或手动下载。"
-    echo "手动下载指南:"
-    echo "1. 访问 https://github.com/tuic-protocol/tuic/releases/latest"
-    echo "2. 下载 tuic-server-*-x86_64-unknown-linux-musl 文件"
-    echo "3. 将文件上传到服务器并重命名为 $TUIC_BIN"
-    echo "4. 执行: chmod +x $TUIC_BIN"
+    echo "❌ 所有下载源均失败，请手动下载 TUIC 二进制"
     exit 1
   fi
-
-  echo "✓ TUIC 二进制文件下载成功"
 fi
 
 # ===== 证书处理 =====
@@ -100,6 +90,10 @@ if [ -z "$CERT_PATH" ]; then
 else
   read -p "请输入私钥 (.key) 文件绝对路径: " KEY_PATH
   read -p "请输入证书域名 (SNI): " FAKE_DOMAIN
+  if [ ! -f "$CERT_PATH" ] || [ ! -f "$KEY_PATH" ]; then
+    echo "❌ 证书或私钥文件不存在，请检查路径"
+    exit 1
+  fi
 fi
 
 # ===== 生成 UUID 和密码 =====
@@ -147,7 +141,8 @@ rc-update add tuic default
 rc-service tuic restart
 
 # ===== 输出订阅链接 =====
-ENC_PASS=$(printf '%s' "$PASS" | jq -s -R -r @uri)   # URL 编码密码
+ENC_PASS=$(printf '%s' "$PASS" | jq -s -R -r @uri)
+ENC_SNI=$(printf '%s' "$FAKE_DOMAIN" | jq -s -R -r @uri)
 IP=$(wget -qO- ipv4.icanhazip.com || wget -qO- ipv6.icanhazip.com)
 
 echo "------------------------------------------------------------------------"
@@ -162,5 +157,5 @@ echo "证书路径: $CERT_PATH"
 echo "私钥路径: $KEY_PATH"
 echo "------------------------------------------------------------------------"
 echo "订阅链接 (TUIC V5):"
-echo "tuic://$UUID:$ENC_PASS@$IP:$PORT?sni=$FAKE_DOMAIN&alpn=h3#TUIC节点"
+echo "tuic://$UUID:$ENC_PASS@$IP:$PORT?sni=$ENC_SNI&alpn=h3#TUIC节点"
 echo "------------------------------------------------------------------------"
