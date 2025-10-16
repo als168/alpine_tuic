@@ -1,5 +1,5 @@
 #!/bin/sh
-# TUIC v5 一键安装脚本 (Alpine Linux, 自动获取最新版本号 + musl 构建)
+# TUIC v5 一键安装脚本 (Alpine Linux, 自动检测已有二进制)
 
 set -e
 
@@ -11,38 +11,42 @@ echo "---------------------------------------"
 echo "正在安装必要的软件包..."
 apk add --no-cache wget curl openssl openrc lsof coreutils jq >/dev/null
 
-# ===== 获取最新版本号 =====
-LATEST=$(curl -s https://api.github.com/repos/tuic-protocol/tuic/releases/latest | jq -r .name)
-if [ -z "$LATEST" ] || [ "$LATEST" = "null" ]; then
-  echo "❌ 无法获取最新版本号，请检查网络或 GitHub API"
-  exit 1
-fi
-echo "检测到最新版本: $LATEST"
-
-# ===== 下载 TUIC (musl 版本 for Alpine) =====
 TUIC_BIN="/usr/local/bin/tuic"
-FILENAME="tuic-server-${LATEST}-x86_64-unknown-linux-musl"
 
-URLS="
-https://github.com/tuic-protocol/tuic/releases/download/tuic-server-$LATEST/$FILENAME
-https://ghproxy.com/https://github.com/tuic-protocol/tuic/releases/download/tuic-server-$LATEST/$FILENAME
-"
+# ===== 检测是否已有 TUIC =====
+if [ -x "$TUIC_BIN" ]; then
+  echo "检测到已存在 TUIC 二进制，跳过下载步骤"
+else
+  echo "未检测到 TUIC，开始下载..."
 
-SUCCESS=0
-for url in $URLS; do
-  echo "尝试下载: $url"
-  if wget --timeout=30 --tries=2 --show-progress -O $TUIC_BIN "$url"; then
-    SUCCESS=1
-    break
+  # 获取最新版本号
+  TAG=$(curl -s https://api.github.com/repos/tuic-protocol/tuic/releases/latest | jq -r .tag_name)
+  VERSION=${TAG#tuic-server-}   # 去掉前缀，只保留版本号
+  echo "检测到最新版本: $VERSION"
+
+  # 拼接文件名和下载地址
+  FILENAME="tuic-server-${VERSION}-x86_64-unknown-linux-musl"
+  URLS="
+  https://github.com/tuic-protocol/tuic/releases/download/$TAG/$FILENAME
+  https://ghproxy.com/https://github.com/tuic-protocol/tuic/releases/download/$TAG/$FILENAME
+  "
+
+  SUCCESS=0
+  for url in $URLS; do
+    echo "尝试下载: $url"
+    if wget --timeout=30 --tries=2 --show-progress -O $TUIC_BIN "$url"; then
+      SUCCESS=1
+      break
+    fi
+  done
+
+  if [ $SUCCESS -eq 0 ]; then
+    echo "❌ 所有下载源均失败，请检查网络环境。"
+    exit 1
   fi
-done
 
-if [ $SUCCESS -eq 0 ]; then
-  echo "❌ 所有下载源均失败，请检查网络环境。"
-  exit 1
+  chmod +x $TUIC_BIN
 fi
-
-chmod +x $TUIC_BIN
 
 # ===== 证书处理 =====
 CERT_DIR="/etc/tuic"
