@@ -1,11 +1,11 @@
 #!/bin/sh
 # TUIC v5 一键安装脚本 (Alpine Linux, 自动检测二进制 + URL 编码订阅链接)
-# 修正版：修复 aria2 下载路径问题，确保文件落在 /tmp/tuic_temp
+# 最终修正版：修复 aria2 下载路径问题，避免 .1 重命名，确保文件落在 /tmp/tuic_temp
 
 set -e
 
 echo "---------------------------------------"
-echo " TUIC v5 Alpine Linux 安装脚本 (修正版)"
+echo " TUIC v5 Alpine Linux 安装脚本 (最终修正版)"
 echo "---------------------------------------"
 
 # ===== 安装依赖 =====
@@ -45,9 +45,11 @@ else
   SUCCESS=0
   for url in $URLS; do
     echo "尝试下载: $url"
+    rm -f /tmp/tuic_temp*   # 清理旧文件，避免 .1 重命名
+
     if command -v aria2c >/dev/null 2>&1; then
       echo "使用 aria2c 多线程下载..."
-      aria2c -x 8 -s 8 -o "$TEMP_BIN" "$url" || continue
+      aria2c -x 8 -s 8 -d /tmp -o tuic_temp "$url" || continue
     else
       wget --timeout=30 --tries=3 -O "$TEMP_BIN" "$url" || continue
     fi
