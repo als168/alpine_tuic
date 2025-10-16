@@ -1,5 +1,5 @@
 #!/bin/sh
-# TUIC v5 一键安装脚本 (仅适用于 Alpine Linux, 使用 musl 构建)
+# TUIC v5 一键安装脚本 (Alpine Linux, 自动获取最新版本号)
 
 set -e
 
@@ -9,15 +9,22 @@ echo "---------------------------------------"
 
 # ===== 安装依赖 =====
 echo "正在安装必要的软件包..."
-apk add --no-cache wget curl openssl openrc lsof coreutils >/dev/null
+apk add --no-cache wget curl openssl openrc lsof coreutils jq >/dev/null
+
+# ===== 获取最新版本号 =====
+LATEST=$(curl -s https://api.github.com/repos/tuic-protocol/tuic/releases/latest | jq -r .tag_name)
+if [ -z "$LATEST" ] || [ "$LATEST" = "null" ]; then
+  echo "❌ 无法获取最新版本号，请检查网络或 GitHub API"
+  exit 1
+fi
+echo "检测到最新版本: $LATEST"
 
 # ===== 下载 TUIC (musl 版本) =====
-echo "正在下载 TUIC 最新版 (musl 构建)..."
 TUIC_BIN="/usr/local/bin/tuic"
 URLS="
-https://github.com/tuic-protocol/tuic/releases/latest/download/tuic-server-x86_64-unknown-linux-musl
-https://ghproxy.com/https://github.com/tuic-protocol/tuic/releases/latest/download/tuic-server-x86_64-unknown-linux-musl
-https://download.fastgit.org/tuic-protocol/tuic/releases/latest/download/tuic-server-x86_64-unknown-linux-musl
+https://github.com/tuic-protocol/tuic/releases/download/$LATEST/tuic-server-${LATEST#v}-x86_64-unknown-linux-musl
+https://ghproxy.com/https://github.com/tuic-protocol/tuic/releases/download/$LATEST/tuic-server-${LATEST#v}-x86_64-unknown-linux-musl
+https://download.fastgit.org/tuic-protocol/tuic/releases/download/$LATEST/tuic-server-${LATEST#v}-x86_64-unknown-linux-musl
 "
 
 SUCCESS=0
