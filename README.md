@@ -27,6 +27,8 @@ curl -fsSL https://raw.githubusercontent.com/als168/alpine_tuic/main/tuic.sh -o 
 
 支持 IPv4 / IPv6
 
+对于IPv6小鸡请选择IPv6链接
+
 📌 管理命令
 ```bash
 service tuic start     # 启动服务
