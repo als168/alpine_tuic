@@ -14,17 +14,17 @@ if [ -x "$TUIC_BIN" ]; then
   echo "请选择操作:"
   echo "1) 修改端口"
   echo "2) 卸载 TUIC"
-  echo "3) 退出"
-  read -p "请输入选项 [1-3]: " choice
+  echo "3) 查看节点信息"
+  echo "4) 退出"
+  read -p "请输入选项 [1-4]: " choice
 
   case "$choice" in
     1)
       read -p "请输入新的端口号: " NEW_PORT
       [ -z "$NEW_PORT" ] && echo "❌ 端口不能为空" && exit 1
       sed -i "s/\"server\": \".*\"/\"server\": \"[::]:$NEW_PORT\"/" "$CONFIG_FILE"
-      echo "端口已修改为 $NEW_PORT"
       rc-service tuic restart
-      echo "✅ TUIC 已重启"
+      echo "✅ 端口已修改为 $NEW_PORT 并已重启服务"
       exit 0
       ;;
     2)
@@ -36,7 +36,11 @@ if [ -x "$TUIC_BIN" ]; then
       echo "✅ TUIC 已卸载完成"
       exit 0
       ;;
-    3) echo "已退出"; exit 0 ;;
+    3)
+      cat "$CERT_DIR/tuic-links.txt"
+      exit 0
+      ;;
+    4) echo "已退出"; exit 0 ;;
     *) echo "无效选项"; exit 1 ;;
   esac
 fi
@@ -81,7 +85,7 @@ read -p "请输入证书 (.crt) 文件绝对路径 (回车则生成自签证书)
 if [ -z "$CERT_PATH" ]; then
   read -p "请输入伪装域名 (默认 www.bing.com): " FAKE_DOMAIN
   [ -z "$FAKE_DOMAIN" ] && FAKE_DOMAIN="www.bing.com"
-  openssl req -x509 -newkey rsa:2048 -nodes -keyout $CERT_DIR/key.pem -out $CERT_DIR/cert.pem -days 365 \
+  openssl req -x509 -newkey rsa:2048 -nodes -keyout $CERT_DIR/key.pem -out $CERT_DIR/cert.pem -days 825 \
     -subj "/CN=$FAKE_DOMAIN"
   CERT_PATH="$CERT_DIR/cert.pem"
   KEY_PATH="$CERT_DIR/key.pem"
@@ -95,8 +99,8 @@ UUID=$(cat /proc/sys/kernel/random/uuid)
 PASS=$(openssl rand -base64 16)
 [ -z "$FAKE_DOMAIN" ] && FAKE_DOMAIN="www.bing.com"
 
-read -p "请输入 TUIC 端口 (默认 28543): " PORT
-[ -z "$PORT" ] && PORT=28543
+read -p "请输入 TUIC 端口 (默认随机): " PORT
+[ -z "$PORT" ] && PORT=$(shuf -i 20000-60000 -n 1)
 
 # ===== 拥塞算法选择 =====
 echo "请选择拥塞控制算法:"
@@ -137,48 +141,33 @@ chmod +x $SERVICE_FILE
 rc-update add tuic default
 rc-service tuic restart
 
-# ===== 获取公网 IP =====
-IPV4=$(wget -qO- -T 5 ipv4.icanhazip.com)
-IPV6=$(wget -qO- -T 5 ipv6.icanhazip.com)
-[ -n "$IPV6" ] && IP6_URI="[$IPV6]"
-
-# ===== URI 编码 =====
+# ---------------- 输出链接 ----------------
+IPV4=$(curl -s ipv4.icanhazip.com || true)
+IPV6=$(curl -s ipv6.icanhazip.com || true)
 ENC_PASS=$(printf '%s' "$PASS" | jq -s -R -r @uri)
 ENC_SNI=$(printf '%s' "$FAKE_DOMAIN" | jq -s -R -r @uri)
 
-# ===== 输出单节点链接（带算法参数） =====
 LINK_FILE="$CERT_DIR/tuic-links.txt"
-echo "------------------------------------------------------------------------"
-echo "UUID: $UUID"
-echo "密码: $PASS"
-echo "SNI: $FAKE_DOMAIN"
-echo "端口: $PORT"
-echo "拥塞算法: $CC_ALGO"
-{
-  echo "UUID: $UUID"
-  echo "密码: $PASS"
-  echo "SNI: $FAKE_DOMAIN"
-  echo "端口: $PORT"
-  echo "拥塞算法: $CC_ALGO"
-} > $LINK_FILE
-
-if [ -n "$IPV4" ]; then
-  LINK4="tuic://$UUID:$ENC_PASS@$IPV4:$PORT?sni=$ENC_SNI&alpn=h3&congestion_control=$CC_ALGO#TUIC-IPv4-$CC_ALGO"
-  echo "单节点链接 (IPv4): $LINK4"
-  echo "$LINK4" >> $LINK_FILE
-fi
+> "$LINK_FILE"
 
 if [ -n "$IPV6" ]; then
-  LINK6="tuic://$UUID:$ENC_PASS@$IP6_URI:$PORT?sni=$ENC_SNI&alpn=h3&congestion_control=$CC_ALGO#TUIC-IPv6-$CC_ALGO"
-  echo "单节点链接 (IPv6): $LINK6"
-  echo "$LINK6" >> $LINK_FILE
+  COUNTRY6=$(curl -s "http://ip-api.com/line/${IPV6}?fields=countryCode" || true)
+  [ -z "$COUNTRY6" ] && COUNTRY6="XX"
+  LINK6="tuic://$UUID:$ENC_PASS@[$IPV6]:$PORT?sni=$ENC_SNI&alpn=h3&congestion_control=$CC_ALGO#TUIC-${COUNTRY6}-IPv6-$CC_ALGO"
+  echo "$LINK6" >> "$LINK_FILE"
+  echo "IPv6 节点: $LINK6"
 fi
 
-echo "------------------------------------------------------------------------"
-echo "所有链接已保存到: $LINK_FILE"
+if [ -n "$IPV4" ]; then
+  COUNTRY4=$(curl -s "http://ip-api.com/line/${IPV4}?fields=countryCode" || true)
+  [ -z "$COUNTRY4" ] && COUNTRY4="XX"
+  LINK4="tuic://$UUID:$ENC_PASS@$IPV4:$PORT?sni=$ENC_SNI&alpn=h3&congestion_control=$CC_ALGO#TUIC-${COUNTRY4}-IPv4-$CC_ALGO"
+  echo "$LINK4" >> "$LINK_FILE"
+  echo "IPv4 节点: $LINK4"
+fi
 
-# 在 root 目录下创建软链接，方便快速访问
-ln -sf $LINK_FILE /root/tuic-links.txt
+ln -sf "$LINK_FILE" /root/tuic-links.txt
+echo "✅ 所有链接已保存到: $LINK_FILE"
 echo "快捷访问: ~/tuic-links.txt"
 
 # ===== 生成 v2rayN 节点配置 =====
@@ -197,4 +186,32 @@ cat > $V2RAYN_FILE <<EOF
     "sni": "$FAKE_DOMAIN",
     "udp_relay_mode": "native",
     "disable_sni": false,
-    "reduce_rtt":
+    "reduce_rtt": true
+  }
+}
+EOF
+
+# ===== 生成 Clash Meta 配置 =====
+CLASH_FILE="$CERT_DIR/clash-tuic.yaml"
+cat > $CLASH_FILE <<EOF
+proxies:
+  - name: "TUIC-${CC_ALGO}"
+    type: tuic
+    server: ${IPV4:-$IPV6}
+    port: $PORT
+    uuid: "$UUID"
+    password: "$PASS"
+    alpn: ["h3"]
+    sni: "$FAKE_DOMAIN"
+    congestion_control: $CC_ALGO
+    udp_relay_mode: native
+    skip-cert-verify: true
+    disable_sni: false
+    reduce_rtt: true
+EOF
+
+echo "✅ v2rayN 配置已生成: $V2RAYN_FILE"
+echo "✅ Clash Meta 配置已生成: $CLASH_FILE"
+
+    
+    
