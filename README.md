@@ -1,6 +1,6 @@
 # Alpine TUIC 一键安装脚本
 
-本项目提供一个适用于 **Alpine Linux** 的 TUIC v5 一键安装脚本，自动完成依赖安装、证书生成/申请、配置文件生成、OpenRC 服务创建，并输出订阅链接。
+本项目提供一个适用于 **Alpine Linux** 的 TUIC v5 一键安装脚本，自动完成依赖安装、证书生成/申请、配置文件生成、OpenRC 服务创建，并输出链接。
 
 ---
 
@@ -38,14 +38,9 @@ tail -f /var/log/tuic.log   # 查看实时日志
 ```
 ❌ 卸载命令
 
-```bash
-service tuic stop
-rc-update del tuic
-rm /etc/init.d/tuic
-rm /usr/local/bin/tuic
-rm -rf /etc/tuic
-rm tuic.sh
-```
+
+重新输入一键命令可以修改端口，可以卸载tuic
+
 
 
 
