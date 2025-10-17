@@ -9,7 +9,7 @@
 复制并运行以下命令即可安装：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/als168/alpine_tuic/main/tuic.sh -o tuic.sh && chmod +x tuic.sh && sh tuic.sh
+bash <(curl -fsSL https://raw.githubusercontent.com/als168/alpine_tuic/main/tuic.sh)
 ```
 
 ⚙️ 功能特性
