@@ -113,7 +113,6 @@ case "$CC_CHOICE" in
 esac
 echo "已选择拥塞算法: $CC_ALGO"
 
-# ===== 生成 config.json（仅加入 max_open_streams） =====
 cat > $CONFIG_FILE <<EOF
 {
   "server": "[::]:$PORT",
