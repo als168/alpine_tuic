@@ -60,12 +60,19 @@ if [ -x "$TUIC_BIN" ] && [ -f "$CONFIG_FILE" ]; then
       rm -f "$TUIC_BIN" "$SERVICE_FILE"
       rm -rf "$CERT_DIR"
       color_echo green "TUIC 已卸载完成"
+      exit 0
       ;;
-    5) echo "已退出";;
-    *) color_echo red "无效选项"; exit 1;;
-  esac
-  exit 0
-fi
+    5) 
+      echo "已退出"
+      exit 0
+      ;;
+    *) 
+      color_echo red "无效选项"
+      exit 1
+      ;;
+ esac
+  
+ fi
 
 # ===== 安装流程 =====
 echo "---------------------------------------"
