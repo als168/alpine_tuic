@@ -122,8 +122,8 @@ cat > $CONFIG_FILE <<EOF
   "certificate": "$CERT_PATH",
   "private_key": "$KEY_PATH",
   "alpn": ["h3"],
-  "congestion_control": "$CC_ALGO",
-  "max_open_streams": 1024
+  "congestion_control": "$CC_ALGO"
+  
 }
 EOF
 
