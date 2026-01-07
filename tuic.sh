@@ -190,7 +190,7 @@ ENC_SNI=$(printf '%s' "$FAKE_DOMAIN" | jq -s -R -r @uri)
 if [ -n "$IPV6" ]; then
   COUNTRY6=$(curl -s "http://ip-api.com/line/${IPV6}?fields=countryCode" || true)
   [ -z "$COUNTRY6" ] && COUNTRY6="XX"
-  LINK6="tuic://$UUID:$ENC_PASS@[$IPV6]:$PORT?sni=$ENC_SNI&alpn=h3&congestion_control=$CC_ALGO#TUIC-${COUNTRY6}-IPv6-$CC_ALGO"
+  LINK6="tuic://$UUID:$ENC_PASS@[$IPV6]:$PORT?sni=$ENC_SNI&alpn=h3&congestion_control=$CC_ALGO#TUIC-IPv6-$CC_ALGO"
   echo "$LINK6" >> "$LINK_FILE"
   color_echo green "IPv6 节点: $LINK6"
 fi
@@ -198,7 +198,7 @@ fi
 if [ -n "$IPV4" ]; then
   COUNTRY4=$(curl -s "http://ip-api.com/line/${IPV4}?fields=countryCode" || true)
   [ -z "$COUNTRY4" ] && COUNTRY4="XX"
-  LINK4="tuic://$UUID:$ENC_PASS@$IPV4:$PORT?sni=$ENC_SNI&alpn=h3&congestion_control=$CC_ALGO#TUIC-${COUNTRY4}-IPv4-$CC_ALGO"
+  LINK4="tuic://$UUID:$ENC_PASS@$IPV4:$PORT?sni=$ENC_SNI&alpn=h3&congestion_control=$CC_ALGO#TUIC-IPv4-$CC_ALGO"
   echo "$LINK4" >> "$LINK_FILE"
   color_echo green "IPv4 节点: $LINK4"
 fi
