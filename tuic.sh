@@ -6,7 +6,7 @@ CERT_DIR="/etc/tuic"
 CONFIG_FILE="$CERT_DIR/config.json"
 SERVICE_FILE="/etc/init.d/tuic"
 
-# ===== 公共函数 =====
+# ===== 颜色输出 =====
 color_echo() {
   case "$1" in
     red) shift; printf "\033[31m%s\033[0m\n" "$*";;
@@ -17,6 +17,7 @@ color_echo() {
   esac
 }
 
+# ===== 获取 IP =====
 get_ip() {
   IPV4=$(curl -s --max-time 3 ipv4.icanhazip.com || true)
   IPV6=$(curl -s --max-time 3 ipv6.icanhazip.com || true)
@@ -41,18 +42,20 @@ if [ -x "$TUIC_BIN" ] && [ -f "$CONFIG_FILE" ]; then
       sed -i "s/\"server\": \".*\"/\"server\": \"[::]:$NEW_PORT\"/" "$CONFIG_FILE"
       rc-service tuic restart
       color_echo green "端口已修改为 $NEW_PORT 并已重启服务"
+      exit 0
       ;;
+
     2)
       rc-service tuic restart
       color_echo green "TUIC 已重启"
+      exit 0
       ;;
+
     3)
-      if [ -f "$CERT_DIR/tuic-links.txt" ]; then
-        cat "$CERT_DIR/tuic-links.txt"
-      else
-        color_echo yellow "未找到 tuic-links.txt"
-      fi
+      cat "$CERT_DIR/tuic-links.txt"
+      exit 0
       ;;
+
     4)
       color_echo yellow "正在卸载 TUIC..."
       rc-service tuic stop || true
@@ -62,17 +65,18 @@ if [ -x "$TUIC_BIN" ] && [ -f "$CONFIG_FILE" ]; then
       color_echo green "TUIC 已卸载完成"
       exit 0
       ;;
-    5) 
+
+    5)
       echo "已退出"
       exit 0
       ;;
-    *) 
+
+    *)
       color_echo red "无效选项"
       exit 1
       ;;
- esac
-  
- fi
+  esac
+fi
 
 # ===== 安装流程 =====
 echo "---------------------------------------"
@@ -132,16 +136,15 @@ read -p "请输入 TUIC 端口 (默认随机 20000-60000): " PORT
 [ -z "$PORT" ] && PORT=$(shuf -i 20000-60000 -n 1)
 
 echo "请选择拥塞控制算法:"
-echo "1) bbr   (推荐: 跨境/高延迟/丢包线路)"
-echo "2) cubic (推荐: 稳定本地/低丢包环境)"
+echo "1) bbr   (推荐)"
+echo "2) cubic (稳定小鸡)"
 read -p "请输入选项 [1-2] (默认 1): " CC_CHOICE
 case "$CC_CHOICE" in
   2) CC_ALGO="cubic" ;;
   *) CC_ALGO="bbr" ;;
 esac
-color_echo green "已选择拥塞算法: $CC_ALGO"
 
-# ===== 生成 TUIC v5 配置（强化版，适配小内存） =====
+# ===== 生成 TUIC v5 配置（强化版） =====
 cat > $CONFIG_FILE <<EOF
 {
   "server": "[::]:$PORT",
@@ -184,7 +187,7 @@ chmod +x $SERVICE_FILE
 rc-update add tuic default
 rc-service tuic restart
 
-# ===== 获取 IP 信息 =====
+# ===== 获取 IP =====
 get_ip
 
 LINK_FILE="$CERT_DIR/tuic-links.txt"
@@ -193,18 +196,14 @@ LINK_FILE="$CERT_DIR/tuic-links.txt"
 ENC_PASS=$(printf '%s' "$PASS" | jq -s -R -r @uri)
 ENC_SNI=$(printf '%s' "$FAKE_DOMAIN" | jq -s -R -r @uri)
 
-# ===== 生成 TUIC URL 链接 =====
+# ===== 生成 TUIC URL（使用下划线避免直连‑1） =====
 if [ -n "$IPV6" ]; then
-  COUNTRY6=$(curl -s "http://ip-api.com/line/${IPV6}?fields=countryCode" || true)
-  [ -z "$COUNTRY6" ] && COUNTRY6="XX"
   LINK6="tuic://$UUID:$ENC_PASS@[$IPV6]:$PORT?sni=$ENC_SNI&alpn=h3&congestion_control=$CC_ALGO#TUIC_IPv6_$CC_ALGO"
   echo "$LINK6" >> "$LINK_FILE"
   color_echo green "IPv6 节点: $LINK6"
 fi
 
 if [ -n "$IPV4" ]; then
-  COUNTRY4=$(curl -s "http://ip-api.com/line/${IPV4}?fields=countryCode" || true)
-  [ -z "$COUNTRY4" ] && COUNTRY4="XX"
   LINK4="tuic://$UUID:$ENC_PASS@$IPV4:$PORT?sni=$ENC_SNI&alpn=h3&congestion_control=$CC_ALGO#TUIC_IPv4_$CC_ALGO"
   echo "$LINK4" >> "$LINK_FILE"
   color_echo green "IPv4 节点: $LINK4"
@@ -212,9 +211,8 @@ fi
 
 ln -sf "$LINK_FILE" /root/tuic-links.txt
 color_echo green "所有链接已保存到: $LINK_FILE"
-echo "快捷访问: ~/tuic-links.txt"
 
-# ===== 生成 v2rayN 节点配置 =====
+# ===== v2rayN 配置 =====
 V2RAYN_FILE="$CERT_DIR/v2rayn-tuic.json"
 cat > $V2RAYN_FILE <<EOF
 {
@@ -234,13 +232,12 @@ cat > $V2RAYN_FILE <<EOF
   }
 }
 EOF
-color_echo green "v2rayN 配置已生成: $V2RAYN_FILE"
 
-# ===== 生成 Clash Meta 配置 =====
+# ===== Clash Meta 配置 =====
 CLASH_FILE="$CERT_DIR/clash-tuic.yaml"
 cat > $CLASH_FILE <<EOF
 proxies:
-  - name: "TUIC-${CC_ALGO}"
+  - name: "TUIC_${CC_ALGO}"
     type: tuic
     server: ${IPV4:-$IPV6}
     port: $PORT
@@ -254,8 +251,5 @@ proxies:
     disable_sni: false
     reduce_rtt: true
 EOF
-color_echo green "Clash Meta 配置已生成: $CLASH_FILE"
 
-echo "---------------------------------------"
-color_echo blue " TUIC v5 安装完成（Alpine / 小内存优化版）"
-echo "---------------------------------------"
+color_echo green "TUIC v5 安装完成（Alpine / 小内存优化版）"
